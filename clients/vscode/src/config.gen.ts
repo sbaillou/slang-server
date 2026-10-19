@@ -40,6 +40,8 @@ export interface Config {
   inlayHints?: Config__InlayHints
   /** Builds for direct .f selection or command-based .f generation */
   builds?: Config__Build[]
+  /** Name of the `builds` entry to load on start, as if it had been selected. Ignored when `build` is set. */
+  defaultBuild?: string | null
 }
 
 export interface Config__Build {

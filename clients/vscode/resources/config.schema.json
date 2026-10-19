@@ -107,6 +107,17 @@
           "items": {
             "$ref": "#/$defs/Config__Build"
           }
+        },
+        "defaultBuild": {
+          "description": "Name of the `builds` entry to load on start, as if it had been selected. Ignored when `build` is set.",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": []

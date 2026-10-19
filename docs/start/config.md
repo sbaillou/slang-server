@@ -153,6 +153,20 @@ All configuration options are optional and have sensible defaults. In VSCode, th
 
 ---
 
+### `defaultBuild`
+
+:   **Type:** `string`
+
+    Name of a [`builds`](#builds) entry that the VSCode client loads on start, as if it had been picked in the build selector. For a command-backed entry, the command is run and its source file is watched, so the generated `.f` file stays up to date.
+
+    The entry's `glob` must match exactly one file; otherwise nothing is loaded and an error is shown. The option is also ignored, with an error, when [`build`](#build) is set.
+
+    Since scalar values from later config files override earlier ones, `builds` can be shared in `.slang/server.json` while each user picks their own `defaultBuild` in `.slang/local/server.json`.
+
+    **Example:** `"synth"`
+
+---
+
 ### `wcpCommand`
 
 :   **Type:** `string`

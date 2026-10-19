@@ -215,6 +215,21 @@ File input is sent to stdin, and formatted output is read from stdout.',
 
   /// The final config from slang-server json files
   slangConfig: slang.Config = {}
+  /// Resolves once the server has sent its config after (re)starting
+  private configReceived: Promise<void> = Promise.resolve()
+
+  /// Wait for the server config; false if it didn't arrive in time (e.g. the server crashed)
+  async waitForConfig(timeoutMs: number = 10000): Promise<boolean> {
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs)
+    })
+    try {
+      return await Promise.race([this.configReceived.then(() => true), timeout])
+    } finally {
+      clearTimeout(timer)
+    }
+  }
 
   async setupLanguageClient(): Promise<void> {
     const slangServerPath = await this.path.resolveToolPath(this.context, this.logger)
@@ -222,6 +237,12 @@ File input is sent to stdin, and formatted output is read from stdout.',
       return
     }
     this.logger.info('Starting language server')
+
+    // The server sends its config after `initialized`, which can be after client.start() returns
+    let onConfigReceived: () => void = () => {}
+    this.configReceived = new Promise((resolve) => {
+      onConfigReceived = resolve
+    })
 
     // this.logger.info("using path " + slangServerPath)
     const serverOptions: ServerOptions = {
@@ -262,6 +283,7 @@ File input is sent to stdin, and formatted output is read from stdout.',
             this.client!.onNotification('slang/setConfig', (config: slang.Config) => {
               // Set after initialization
               this.slangConfig = config
+              onConfigReceived()
             })
           } else if (
             oldState === vscodelc.State.Running &&

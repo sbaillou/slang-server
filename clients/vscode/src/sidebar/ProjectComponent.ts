@@ -18,6 +18,7 @@ import { InteractionSource } from '../SlangInterface'
 import * as vv from '../vaporview-api'
 import { getBasename, getIcons, getWorkspaceFolder, isAnyVerilog } from '../utils'
 import { Logger } from '../lib/logger'
+import { resolveDefaultBuild } from '../lib/defaultBuild'
 import { glob } from 'glob'
 import { parseArgsStringToArgv } from 'string-argv'
 import {
@@ -562,7 +563,44 @@ export class ProjectComponent
   }
 
   async onStart(): Promise<void> {
+    if (this.compilationSource.type === 'none') {
+      await this.loadDefaultBuild()
+    }
     await this.refreshSlangCompilation({ revealSelection: false })
+  }
+
+  // Load the `builds` entry named by `defaultBuild`, as if it had been picked in the build selector.
+  private async loadDefaultBuild(): Promise<void> {
+    if (!(await ext.waitForConfig())) {
+      this.logger.warn('No config received from slang-server, skipping defaultBuild')
+      return
+    }
+
+    const resolution = await resolveDefaultBuild(ext.slangConfig, async (glob) =>
+      (await ext.findFiles([glob])).map((uri) => uri.fsPath)
+    )
+    if (resolution.type === 'none') {
+      return
+    }
+    if (resolution.type === 'error') {
+      this.logger.error(resolution.message)
+      vscode.window.showErrorMessage(resolution.message)
+      return
+    }
+
+    const file = resolution.file
+    this.logger.info(
+      `Loading defaultBuild '${ext.slangConfig.defaultBuild}': ` +
+        vscode.workspace.asRelativePath(file)
+    )
+    if (resolution.isCommand) {
+      await this.setBuildCommandFile({
+        sourceFile: file,
+        selectionIndex: resolution.selectionIndex,
+      })
+    } else {
+      await this.setDirectBuildFile(file)
+    }
   }
 
   //////////////////////////////////////////////////////////////////

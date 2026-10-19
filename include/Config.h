@@ -141,6 +141,10 @@ struct Config {
     rfl::Description<"Builds for direct .f selection or command-based .f generation",
                      std::vector<Build>>
         builds;
+    rfl::Description<"Name of the `builds` entry to load on start, as if it had been selected. "
+                     "Ignored when `build` is set.",
+                     std::optional<std::string>>
+        defaultBuild;
 
     struct FlagSource {
         std::string filePath;

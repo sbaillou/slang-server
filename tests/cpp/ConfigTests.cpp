@@ -67,6 +67,19 @@ TEST_CASE("Config incdirs append across workspace user and local files") {
     CHECK(config.flags.value() == "-DSHARED -DLOCAL");
 }
 
+TEST_CASE("Config defaultBuild from local file overrides workspace file") {
+    ConfigWorkspace workspace;
+    workspace.write("workspace.json",
+                    R"({"builds":[{"name":"sim","glob":"tb/hier","command":"gen.py"}],)"
+                    R"("defaultBuild":"shared"})");
+    workspace.write("local.json", R"({"defaultBuild":"sim"})");
+    auto result = Config::fromFiles((workspace.root / "workspace.json").string(), std::nullopt,
+                                    (workspace.root / "local.json").string());
+    REQUIRE(result);
+    CHECK(result->defaultBuild.value() == "sim");
+    CHECK(result->builds.value().size() == 1);
+}
+
 TEST_CASE("Config incdirs resolve against the workspace and follow flag directories") {
     ConfigWorkspace workspace;
     workspace.write("headers with spaces/nested.svh", "typedef int value_t;\n");
