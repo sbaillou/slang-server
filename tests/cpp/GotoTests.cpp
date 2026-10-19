@@ -427,3 +427,142 @@ TEST_CASE("FindReferencesAllTokens_crossfile_module.sv") {
     ReferencesScanner scanner(server);
     scanner.scanDocument(hdl);
 }
+
+TEST_CASE("GotoImplementation_JumpsToDrivers") {
+    ServerHarness server;
+
+    auto doc = server.openFile("test.sv", R"(
+module top(input logic clk);
+    logic a, b, c;
+    assign a = 1'b1;
+    always_comb b = a;
+    always_ff @(posedge clk) c <= b;
+    initial $display(a, b, c);
+endmodule
+)");
+
+    auto checkDriver = [&](const std::string& use, const std::string& driver) {
+        auto impls = doc.after(use).getImplementations();
+        CAPTURE(use);
+        REQUIRE(impls.size() == 1);
+        CHECK(impls[0].targetUri == doc.m_uri);
+        CHECK(impls[0].targetSelectionRange.start == doc.before(driver).getPosition());
+    };
+    checkDriver("$display(", "a = 1'b1");
+    checkDriver("$display(a, ", "b = a");
+    checkDriver("$display(a, b, ", "c <= b");
+
+    // Not a driven value
+    CHECK(doc.before("top(").getImplementations().empty());
+}
+
+TEST_CASE("GotoImplementation_MultipleDrivers") {
+    ServerHarness server;
+
+    auto doc = server.openFile("test.sv", R"(
+module top(input logic sel);
+    logic [1:0] value;
+    always_comb begin
+        value[0] = sel;
+        value[1] = !sel;
+    end
+    assign value[1] = 1'b0;
+endmodule
+)");
+
+    auto impls = doc.after("logic [1:0] ").getImplementations();
+    REQUIRE(impls.size() == 3);
+    CHECK(impls[0].targetSelectionRange.start == doc.before("value[0] =").getPosition());
+    CHECK(impls[1].targetSelectionRange.start == doc.before("value[1] =").getPosition());
+    CHECK(impls[2].targetSelectionRange.start == doc.after("assign ").getPosition());
+}
+
+TEST_CASE("GotoImplementation_FollowsOutputPortDriver") {
+    ServerHarness server;
+
+    auto doc = server.openFile("test.sv", R"(
+module leaf(output logic data);
+    always_comb data = 1'b1;
+endmodule
+
+module top(output logic value);
+    leaf u(.data(value));
+endmodule
+)");
+
+    auto impls = doc.after("output logic val").getImplementations();
+    REQUIRE(impls.size() == 2);
+    CHECK(impls[0].targetSelectionRange.start == doc.after(".data(").getPosition());
+    CHECK(impls[1].targetSelectionRange.start == doc.before("data = 1'b1").getPosition());
+}
+
+TEST_CASE("GotoImplementation_HonorsLinkSupport") {
+    auto checkResultType = [](std::optional<bool> linkSupport) {
+        lsp::InitializeParams params;
+        params.capabilities.textDocument.emplace();
+        params.capabilities.textDocument->implementation = lsp::ImplementationClientCapabilities{
+            .linkSupport = linkSupport};
+        ServerHarness server(std::move(params));
+
+        auto doc = server.openFile("test.sv", R"(
+module top;
+    int value;
+    initial value = 1;
+endmodule
+)");
+        auto cursor = doc.after("int ");
+        auto result = server.getDocImplementation(lsp::ImplementationParams{
+            .textDocument = {.uri = doc.m_uri}, .position = cursor.getPosition()});
+
+        if (linkSupport.value_or(false)) {
+            REQUIRE(rfl::holds_alternative<std::vector<lsp::DefinitionLink>>(result));
+            CHECK(rfl::get<std::vector<lsp::DefinitionLink>>(result).size() == 1);
+        }
+        else {
+            REQUIRE(rfl::holds_alternative<lsp::Definition>(result));
+            const auto& definition = rfl::get<lsp::Definition>(result);
+            REQUIRE(rfl::holds_alternative<std::vector<lsp::Location>>(definition));
+            CHECK(rfl::get<std::vector<lsp::Location>>(definition).size() == 1);
+        }
+    };
+
+    checkResultType(std::nullopt);
+    checkResultType(true);
+}
+
+TEST_CASE("GotoImplementation_InputPortJumpsToParentConnection") {
+    ServerHarness server;
+
+    auto doc = server.openFile("test.sv", R"(
+module leaf(input logic data);
+    logic copy;
+    assign copy = data;
+endmodule
+
+module top(input logic value);
+    leaf u(.data(value));
+endmodule
+)");
+
+    auto impls = doc.after("assign copy = ").getImplementations();
+    REQUIRE(impls.size() == 1);
+    CHECK(impls[0].targetSelectionRange.start == doc.after(".data(").getPosition());
+}
+
+TEST_CASE("GotoImplementation_InputPortUsesActiveInstanceAcrossFiles") {
+    ServerHarness server("goto_implementation_input_port");
+    server.setBuildFile("design.f");
+
+    auto leaf = server.openFile("leaf.sv");
+    auto top = server.openFile("top.sv");
+    auto checkConnection = [&](const std::string& instance, const std::string& connection) {
+        REQUIRE(server.setActiveInstance(instance));
+        auto impls = leaf.after("assign copy = ").getImplementations();
+        CAPTURE(instance);
+        REQUIRE(impls.size() == 1);
+        CHECK(impls[0].targetUri == top.m_uri);
+        CHECK(impls[0].targetSelectionRange.start == top.after(connection).getPosition());
+    };
+    checkConnection("top.u0", "u0(.data(");
+    checkConnection("top.u1", "u1(.data(");
+}

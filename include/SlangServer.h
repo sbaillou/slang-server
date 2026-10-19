@@ -241,6 +241,10 @@ public:
     rfl::Variant<lsp::Definition, std::vector<lsp::DefinitionLink>, std::monostate>
     getDocDefinition(const lsp::DefinitionParams&) override;
 
+    /// Goto Implementation: jumps to the drivers of a signal, as listed in its hover
+    rfl::Variant<lsp::Definition, std::vector<lsp::DefinitionLink>, std::monostate>
+    getDocImplementation(const lsp::ImplementationParams&) override;
+
     /// Completion (get list of ids and kinds)
     rfl::Variant<std::vector<lsp::CompletionItem>, lsp::CompletionList, std::monostate>
     getDocCompletion(const lsp::CompletionParams&) override;

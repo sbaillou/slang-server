@@ -78,6 +78,14 @@ Go-to references are provided for nearly all symbols except for macros. Referenc
 
 ![goto-refs](/assets/images/gotorefs.gif)
 
+### Go-to Drivers
+
+Go-to Implementation navigates to the drivers of a signal, which are the same drivers listed in its hover. In VS Code, run **Go to Implementation** (`Ctrl+F12`). In Neovim, run `vim.lsp.buf.implementation()`. When a signal has more than one driver, the editor shows a list of them.
+
+Each result points to the driven expression, for example the left-hand side of an assignment in an `always_ff` block, rather than to the start of the enclosing block. For a signal that is connected to an output port, the results include the port connection and the drivers in the instantiated module.
+
+For an input port, the result is the port connection in the parent instance. When the parent is in another file, this requires an [elaborated design](hdl/hdl.md), and the result follows the [active instance](hdl/hdl.md#active-instances) of the module.
+
 ### Inlay Hints
 
 Inlay hints are text that show up inline in the code to provide useful info. They can be hovered for more info, and some can be double clicked to insert some text.

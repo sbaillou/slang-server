@@ -221,6 +221,9 @@ public:
     bool hasDefinition();
     std::vector<lsp::LocationLink> getDefinitions();
 
+    // Goto implementation (drivers)
+    std::vector<lsp::LocationLink> getImplementations();
+
     // Get document highlights
     std::vector<lsp::DocumentHighlight> getHighlights();
 

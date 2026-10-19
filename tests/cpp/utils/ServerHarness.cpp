@@ -434,11 +434,8 @@ bool Cursor::hasDefinition() {
     return !defs.empty();
 }
 
-std::vector<lsp::LocationLink> Cursor::getDefinitions() {
-    lsp::DefinitionParams params{.textDocument = {.uri = m_doc.m_uri},
-                                 .position = m_doc.getPosition(m_offset)};
-    auto res = m_doc.m_server.getDocDefinition(params);
-
+static std::vector<lsp::LocationLink> toLocationLinks(
+    const rfl::Variant<lsp::Definition, std::vector<lsp::DefinitionLink>, std::monostate>& res) {
     if (rfl::holds_alternative<std::monostate>(res)) {
         return {};
     }
@@ -471,6 +468,18 @@ std::vector<lsp::LocationLink> Cursor::getDefinitions() {
     }
 
     return {};
+}
+
+std::vector<lsp::LocationLink> Cursor::getDefinitions() {
+    lsp::DefinitionParams params{.textDocument = {.uri = m_doc.m_uri},
+                                 .position = m_doc.getPosition(m_offset)};
+    return toLocationLinks(m_doc.m_server.getDocDefinition(params));
+}
+
+std::vector<lsp::LocationLink> Cursor::getImplementations() {
+    lsp::ImplementationParams params{.textDocument = {.uri = m_doc.m_uri},
+                                     .position = m_doc.getPosition(m_offset)};
+    return toLocationLinks(m_doc.m_server.getDocImplementation(params));
 }
 
 std::vector<lsp::DocumentHighlight> Cursor::getHighlights() {

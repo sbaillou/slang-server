@@ -59,6 +59,9 @@ public:
         /// [`textDocument.definition.linkSupport`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#definitionClientCapabilities)
         bool definitionLinksSupported = false;
 
+        /// [`textDocument.implementation.linkSupport`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#implementationClientCapabilities)
+        bool implementationLinksSupported = false;
+
         /// [`textDocument.completion.completionItem.resolveSupport`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#completionClientCapabilities)
         bool completionEditResolveSupported = false;
 
@@ -73,6 +76,9 @@ public:
             const auto& textDocument = capabilities.textDocument;
             definitionLinksSupported = textDocument && textDocument->definition &&
                                        textDocument->definition->linkSupport.value_or(false);
+            implementationLinksSupported = textDocument && textDocument->implementation &&
+                                           textDocument->implementation->linkSupport.value_or(
+                                               false);
 
             if (textDocument && textDocument->completion &&
                 textDocument->completion->completionItem &&
